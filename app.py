@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 
 from services.llm_service import ask_llm
 from prompts.question_prompt import get_question_prompt
@@ -10,7 +11,8 @@ from services.assessment_generator import generate_assessment
 from services.assessment_evaluator import evaluate_assessment
 from database.sqlite_manager import (
     save_assessment,
-    get_assessments
+    get_assessments,
+    get_analytics
 )
 
 st.set_page_config(
@@ -284,8 +286,62 @@ if mode == "Assessment Mode":
 if mode == "History":
 
     st.header("Assessment History")
+    analytics = get_analytics()
+
+    st.subheader("📊 Analytics")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+
+        st.metric(
+            "Total Assessments",
+            analytics["total_assessments"]
+        )
+
+        st.metric(
+            "Average Percentage",
+            f"{analytics['average_percentage']:.2f}%"
+        )
+
+    with col2:
+
+        st.metric(
+            "Highest Percentage",
+            f"{analytics['highest_percentage']:.2f}%"
+        )
+
+        st.metric(
+            "Most Practiced Subject",
+            analytics["most_practiced_subject"]
+        )
+
+    st.info(
+        f"Latest Recommended Difficulty: "
+        f"{analytics['latest_difficulty']}"
+    )
 
     rows = get_assessments()
+    if len(rows) > 0:
+
+        chart_data = []
+
+        for row in reversed(rows):
+
+            chart_data.append(
+                {
+                    "Timestamp": row[7],
+                    "Percentage": row[5]
+                }
+            )
+
+        df = pd.DataFrame(chart_data)
+
+        st.subheader("📈 Performance Trend")
+
+        st.line_chart(
+            df.set_index("Timestamp")
+        )
 
     if len(rows) == 0:
 

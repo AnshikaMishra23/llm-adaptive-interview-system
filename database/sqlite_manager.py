@@ -120,3 +120,56 @@ def get_assessments():
     conn.close()
 
     return rows
+def get_analytics():
+
+    conn = create_connection()
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT
+            COUNT(*),
+            AVG(percentage),
+            MAX(percentage)
+        FROM assessments
+        """
+    )
+
+    summary = cursor.fetchone()
+
+    cursor.execute(
+        """
+        SELECT subject,
+               COUNT(*)
+        FROM assessments
+        GROUP BY subject
+        ORDER BY COUNT(*) DESC
+        LIMIT 1
+        """
+    )
+
+    subject_row = cursor.fetchone()
+
+    cursor.execute(
+        """
+        SELECT recommended_difficulty
+        FROM assessments
+        ORDER BY id DESC
+        LIMIT 1
+        """
+    )
+
+    difficulty_row = cursor.fetchone()
+
+    conn.close()
+
+    return {
+        "total_assessments": summary[0],
+        "average_percentage": summary[1] if summary[1] else 0,
+        "highest_percentage": summary[2] if summary[2] else 0,
+        "most_practiced_subject":
+            subject_row[0] if subject_row else "N/A",
+        "latest_difficulty":
+            difficulty_row[0] if difficulty_row else "N/A"
+    }
