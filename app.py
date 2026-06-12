@@ -6,6 +6,9 @@ from services.evaluator import evaluate_answer
 from utils.helper import extract_score
 from services.adaptive_engine import get_next_difficulty
 
+from services.assessment_generator import generate_assessment
+from services.assessment_evaluator import evaluate_assessment
+
 st.set_page_config(
     page_title="LLM Adaptive Interview System",
     page_icon="🎯"
@@ -13,63 +16,244 @@ st.set_page_config(
 
 st.title("🎯 LLM Adaptive Interview System")
 
-subject = st.selectbox(
-    "Subject",
-    ["DBMS", "Operating Systems", "Computer Networks", "Machine Learning"]
+mode = st.radio(
+    "Select Mode",
+    ["Interview Mode", "Assessment Mode"]
 )
 
-topic = st.text_input("Topic")
+# ==================================================
+# INTERVIEW MODE
+# ==================================================
 
-difficulty = st.selectbox(
-    "Difficulty",
-    ["Easy", "Medium", "Hard"]
-)
+if mode == "Interview Mode":
 
-# Initialize session state
-if "question" not in st.session_state:
-    st.session_state.question = ""
-
-if st.button("Generate Question"):
-
-    prompt = get_question_prompt(
-        subject,
-        topic,
-        difficulty
+    subject = st.selectbox(
+        "Subject",
+        ["DBMS", "Operating Systems", "Computer Networks", "Machine Learning"]
     )
 
-    st.session_state.question = ask_llm(prompt)
+    topic = st.text_input("Topic")
 
-# Show question if available
-if st.session_state.question:
-
-    st.subheader("Generated Question")
-    st.write(st.session_state.question)
-
-    answer = st.text_area(
-        "Your Answer",
-        height=200
+    difficulty = st.selectbox(
+        "Difficulty",
+        ["Easy", "Medium", "Hard"]
     )
 
-    if st.button("Evaluate Answer"):
+    if "question" not in st.session_state:
+        st.session_state.question = ""
 
-        if answer.strip() == "":
-            st.warning("Please enter an answer.")
+    if st.button("Generate Question"):
 
-        else:
+        prompt = get_question_prompt(
+            subject,
+            topic,
+            difficulty
+        )
 
-            evaluation = evaluate_answer(
-                st.session_state.question,
-                answer
+        st.session_state.question = ask_llm(prompt)
+
+    if st.session_state.question:
+
+        st.subheader("Generated Question")
+
+        st.write(st.session_state.question)
+
+        answer = st.text_area(
+            "Your Answer",
+            height=200
+        )
+
+        if st.button("Evaluate Answer"):
+
+            if answer.strip() == "":
+                st.warning("Please enter an answer.")
+
+            else:
+
+                evaluation = evaluate_answer(
+                    st.session_state.question,
+                    answer
+                )
+
+                score = extract_score(evaluation)
+
+                next_difficulty = get_next_difficulty(score)
+
+                st.subheader("Evaluation")
+
+                st.success(f"Score: {score}/10")
+
+                st.info(
+                    f"Recommended Next Difficulty: {next_difficulty}"
+                )
+
+                st.write(evaluation)
+
+# ==================================================
+# ASSESSMENT MODE
+# ==================================================
+
+if mode == "Assessment Mode":
+
+    st.header("Assessment Mode")
+
+    subject = st.selectbox(
+        "Subject",
+        ["DBMS", "Operating Systems", "Computer Networks", "Machine Learning"],
+        key="assessment_subject"
+    )
+
+    topic = st.text_input(
+        "Topic",
+        key="assessment_topic"
+    )
+
+    difficulty = st.selectbox(
+        "Difficulty",
+        ["Easy", "Medium", "Hard"],
+        key="assessment_difficulty"
+    )
+
+    question_type = st.selectbox(
+        "Question Type",
+        ["MCQ" , "MSQ" ,"Mixed"],
+        key="assessment_question_type"
+    )
+
+    num_questions = st.number_input(
+        "Number of Questions",
+        min_value=1,
+        max_value=20,
+        value=5
+    )
+
+    if "assessment_questions" not in st.session_state:
+        st.session_state.assessment_questions = []
+
+    if st.button("Generate Assessment"):
+
+        questions = generate_assessment(
+            subject,
+            topic,
+            difficulty,
+            question_type,
+            num_questions
+        )
+
+        st.session_state.assessment_questions = questions
+
+    if st.session_state.assessment_questions:
+
+        st.subheader("Generated Assessment")
+
+        user_answers = {}
+
+        for question in st.session_state.assessment_questions:
+
+            st.markdown(
+                f"### Q{question['question_id']}. {question['question']}"
             )
 
-            score = extract_score(evaluation)
+            if question["question_type"] == "MCQ":
 
-            next_difficulty = get_next_difficulty(score)
+                options = ["Select an option"] + question["options"]
 
-            st.subheader("Evaluation")
+                answer = st.radio(
+                    "Select Answer",
+                    options,
+                    key=f"q_{question['question_id']}"
+                )
 
-            st.success(f"Score: {score}/10")
+                if answer != "Select an option":
 
-            st.info(f"Recommended Next Difficulty: {next_difficulty}")
+                    user_answers[
+                        question["question_id"]
+                    ] = answer
 
-            st.write(evaluation)
+            elif question["question_type"] == "MSQ":
+
+                answer = st.multiselect(
+                    "Select One or More Answers",
+                    question["options"],
+                    key=f"q_{question['question_id']}"
+                )
+
+                if len(answer) > 0:
+
+                    user_answers[
+                        question["question_id"]
+                    ] = answer
+
+        if st.button("Submit Assessment"):
+
+            if len(user_answers) != len(
+                st.session_state.assessment_questions
+            ):
+
+                st.warning(
+                    "Please answer all questions before submitting."
+                )
+
+            else:
+
+                result = evaluate_assessment(
+                    st.session_state.assessment_questions,
+                    user_answers
+                )
+
+                st.subheader("Assessment Result")
+
+                st.success(
+                    f"Score: {result['score']} / {result['max_score']}"
+                )
+
+                percentage = (
+                    result["score"]
+                    / result["max_score"]
+                ) * 100
+
+                st.info(
+                    f"Percentage: {percentage:.2f}%"
+                )
+                score_on_10 = round(
+                    (result["score"] / result["max_score"]) * 10
+                )
+
+                next_difficulty = get_next_difficulty(
+                    score_on_10
+                )
+
+                st.info(
+                    f"Recommended Next Difficulty: {next_difficulty}"
+                )
+
+                for item in result["results"]:
+
+                    if item["correct"]:
+
+                        st.success(
+                            f"Q{item['question_id']} Correct"
+                        )
+
+                    else:
+
+                        st.error(
+                            f"Q{item['question_id']} Incorrect"
+                        )
+
+                        user_answer = item["user_answer"]
+                        correct_answer = item["correct_answer"]
+
+                        if isinstance(user_answer, list):
+                            user_answer = ", ".join(user_answer)
+
+                        if isinstance(correct_answer, list):
+                            correct_answer = ", ".join(correct_answer)
+
+                        st.write(
+                            f"Your Answer: {user_answer}"
+                        )
+
+                        st.write(
+                            f"Correct Answer: {correct_answer}"
+                        )
