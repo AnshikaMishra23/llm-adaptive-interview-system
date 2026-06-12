@@ -8,6 +8,10 @@ from services.adaptive_engine import get_next_difficulty
 
 from services.assessment_generator import generate_assessment
 from services.assessment_evaluator import evaluate_assessment
+from database.sqlite_manager import (
+    save_assessment,
+    get_assessments
+)
 
 st.set_page_config(
     page_title="LLM Adaptive Interview System",
@@ -18,7 +22,7 @@ st.title("🎯 LLM Adaptive Interview System")
 
 mode = st.radio(
     "Select Mode",
-    ["Interview Mode", "Assessment Mode"]
+    ["Interview Mode", "Assessment Mode", "History"]
 )
 
 # ==================================================
@@ -131,7 +135,7 @@ if mode == "Assessment Mode":
         st.session_state.assessment_questions = []
 
     if st.button("Generate Assessment"):
-
+        st.session_state.saved_result = False
         questions = generate_assessment(
             subject,
             topic,
@@ -226,6 +230,22 @@ if mode == "Assessment Mode":
                 st.info(
                     f"Recommended Next Difficulty: {next_difficulty}"
                 )
+                if "saved_result" not in st.session_state:
+                    st.session_state.saved_result = False
+
+                if not st.session_state.saved_result:
+
+                    save_assessment(
+                        subject,
+                        topic,
+                        question_type,
+                        result["score"],
+                        result["max_score"],
+                        percentage,
+                        next_difficulty
+                    )
+
+                    st.session_state.saved_result = True
 
                 for item in result["results"]:
 
@@ -257,3 +277,39 @@ if mode == "Assessment Mode":
                         st.write(
                             f"Correct Answer: {correct_answer}"
                         )
+# ==================================================
+# HISTORY MODE
+# ==================================================
+
+if mode == "History":
+
+    st.header("Assessment History")
+
+    rows = get_assessments()
+
+    if len(rows) == 0:
+
+        st.info("No assessments found.")
+
+    else:
+
+        history_data = []
+
+        for row in rows:
+
+            history_data.append(
+                {
+                    "Subject": row[0],
+                    "Topic": row[1],
+                    "Type": row[2],
+                    "Score": f"{row[3]}/{row[4]}",
+                    "Percentage": f"{row[5]:.2f}%",
+                    "Recommended Difficulty": row[6],
+                    "Timestamp": row[7]
+                }
+            )
+
+        st.dataframe(
+            history_data,
+            use_container_width=True
+        )
