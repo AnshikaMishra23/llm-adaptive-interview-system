@@ -124,7 +124,7 @@ if mode == "Assessment Mode":
 
     question_type = st.selectbox(
         "Question Type",
-        ["MCQ" , "MSQ" ,"Mixed"],
+        ["MCQ" , "MSQ" ,"Mixed","Descriptive"],
         key="assessment_question_type"
     )
 
@@ -191,6 +191,19 @@ if mode == "Assessment Mode":
                     user_answers[
                         question["question_id"]
                     ] = answer
+            elif question["question_type"] == "Descriptive":
+
+                answer = st.text_area(
+                    "Your Answer",
+                    key=f"q_{question['question_id']}",
+                    height=150
+                )
+
+                if answer.strip():
+
+                    user_answers[
+                        question["question_id"]
+                    ] = answer
 
         if st.button("Submit Assessment"):
 
@@ -203,11 +216,14 @@ if mode == "Assessment Mode":
                 )
 
             else:
+                with st.spinner(
+                    "Evaluating answers... Please wait."
+                ):
 
-                result = evaluate_assessment(
-                    st.session_state.assessment_questions,
-                    user_answers
-                )
+                    result = evaluate_assessment(
+                        st.session_state.assessment_questions,
+                        user_answers
+                    )
 
                 st.subheader("Assessment Result")
 
@@ -253,34 +269,50 @@ if mode == "Assessment Mode":
 
                 for item in result["results"]:
 
-                    if item["correct"]:
+                    if item["question_type"] == "Descriptive":
 
-                        st.success(
-                            f"Q{item['question_id']} Correct"
+                        st.subheader(
+                            f"Q{item['question_id']} Evaluation"
+                        )
+
+                        st.info(
+                            f"Score: {item['score']} / {item['max_marks']}"
+                        )
+
+                        st.write(
+                            item["evaluation"]
                         )
 
                     else:
 
-                        st.error(
-                            f"Q{item['question_id']} Incorrect"
-                        )
+                        if item["correct"]:
 
-                        user_answer = item["user_answer"]
-                        correct_answer = item["correct_answer"]
+                            st.success(
+                                f"Q{item['question_id']} Correct"
+                            )
 
-                        if isinstance(user_answer, list):
-                            user_answer = ", ".join(user_answer)
+                        else:
 
-                        if isinstance(correct_answer, list):
-                            correct_answer = ", ".join(correct_answer)
+                            st.error(
+                                f"Q{item['question_id']} Incorrect"
+                            )
 
-                        st.write(
-                            f"Your Answer: {user_answer}"
-                        )
+                            user_answer = item["user_answer"]
+                            correct_answer = item["correct_answer"]
 
-                        st.write(
-                            f"Correct Answer: {correct_answer}"
-                        )
+                            if isinstance(user_answer, list):
+                                user_answer = ", ".join(user_answer)
+
+                            if isinstance(correct_answer, list):
+                                correct_answer = ", ".join(correct_answer)
+
+                            st.write(
+                                f"Your Answer: {user_answer}"
+                            )
+
+                            st.write(
+                                f"Correct Answer: {correct_answer}"
+                            )
 # ==================================================
 # HISTORY MODE
 # ==================================================

@@ -4,8 +4,8 @@ questions = generate_assessment(
     "DBMS",
     "Normalization",
     "Easy",
-    "Mixed",
-    6
+    "Descriptive",
+    2
 )
 
 print(questions)

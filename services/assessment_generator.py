@@ -82,6 +82,36 @@ Rules:
 2. Return JSON only.
 """
 
+    elif question_type == "Descriptive":
+
+        prompt = f"""
+Generate {num_questions} descriptive questions.
+
+Subject: {subject}
+Topic: {topic}
+Difficulty: {difficulty}
+
+Return ONLY valid JSON.
+
+Format:
+
+[
+    {{
+        "question_id": 1,
+        "question_type": "Descriptive",
+        "question": "Explain Third Normal Form with an example.",
+        "marks": 10
+    }}
+]
+
+Rules:
+1. Questions should require written answers.
+2. Do not generate MCQs.
+3. Do not generate options.
+4. Do not generate correct answers.
+5. Return JSON only.
+"""
+
     else:
 
         mcq_count = max(1, num_questions // 2)
@@ -144,5 +174,6 @@ Rules:
 """
 
     response = ask_llm(prompt)
+
 
     return json.loads(response)
