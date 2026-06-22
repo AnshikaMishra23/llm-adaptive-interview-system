@@ -35,6 +35,7 @@ def create_table():
         percentage REAL,
 
         recommended_difficulty TEXT,
+        username TEXT,
 
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
     )
@@ -45,6 +46,7 @@ def create_table():
     conn.close()
 def save_assessment(
 
+    username,
     subject,
     topic,
     question_type,
@@ -66,6 +68,7 @@ def save_assessment(
     cursor.execute(
         """
         INSERT INTO assessments (
+            username,
             subject,
             topic,
             question_type,
@@ -75,9 +78,10 @@ def save_assessment(
             recommended_difficulty,
             timestamp
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
+            username,
             subject,
             topic,
             question_type,
@@ -93,7 +97,7 @@ def save_assessment(
 
     conn.close()
 
-def get_assessments():
+def get_assessments(username):
 
     conn = create_connection()
 
@@ -111,8 +115,10 @@ def get_assessments():
             recommended_difficulty,
             timestamp
         FROM assessments
+        WHERE username = ?
         ORDER BY id DESC
-        """
+        """,
+        (username,)
     )
 
     rows = cursor.fetchall()
@@ -120,7 +126,7 @@ def get_assessments():
     conn.close()
 
     return rows
-def get_analytics():
+def get_analytics(username):
 
     conn = create_connection()
 
@@ -133,7 +139,9 @@ def get_analytics():
             AVG(percentage),
             MAX(percentage)
         FROM assessments
-        """
+        WHERE username = ?
+        """,
+        (username,)
     )
 
     summary = cursor.fetchone()
@@ -141,12 +149,14 @@ def get_analytics():
     cursor.execute(
         """
         SELECT subject,
-               COUNT(*)
+            COUNT(*)
         FROM assessments
+        WHERE username = ?
         GROUP BY subject
         ORDER BY COUNT(*) DESC
         LIMIT 1
-        """
+        """,
+        (username,)
     )
 
     subject_row = cursor.fetchone()
@@ -155,9 +165,11 @@ def get_analytics():
         """
         SELECT recommended_difficulty
         FROM assessments
+        WHERE username = ?
         ORDER BY id DESC
         LIMIT 1
-        """
+        """,
+        (username,)
     )
 
     difficulty_row = cursor.fetchone()
@@ -173,7 +185,7 @@ def get_analytics():
         "latest_difficulty":
             difficulty_row[0] if difficulty_row else "N/A"
     }
-def get_topic_performance():
+def get_topic_performance(username):
 
     conn = create_connection()
 
@@ -185,9 +197,11 @@ def get_topic_performance():
             topic,
             AVG(percentage)
         FROM assessments
+        WHERE username = ?
         GROUP BY topic
         ORDER BY AVG(percentage)
-        """
+        """,
+        (username,)
     )
 
     rows = cursor.fetchall()

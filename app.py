@@ -16,24 +16,112 @@ from database.sqlite_manager import (
     get_analytics,
     get_topic_performance
 )
+from database.auth_manager import (
+    register_user,
+    login_user
+)
 
 st.set_page_config(
     page_title="LLM Adaptive Interview System",
     page_icon="🎯"
 )
-
 st.title("🎯 LLM Adaptive Interview System")
 
-mode = st.radio(
-    "Select Mode",
-    ["Interview Mode", "Assessment Mode", "History"]
-)
+if "logged_in" not in st.session_state:
 
+    st.session_state.logged_in = False
+
+if not st.session_state.logged_in:
+
+    auth_mode = st.radio(
+        "Authentication",
+        ["Login", "Register"]
+    )
+
+    username = st.text_input(
+        "Username"
+    )
+
+    password = st.text_input(
+        "Password",
+        type="password"
+    )
+
+    if auth_mode == "Login":
+
+        if st.button("Login"):
+
+            user = login_user(
+                username,
+                password
+            )
+
+            if user:
+
+                st.session_state.logged_in = True
+                st.session_state.username = username
+
+                st.success(
+                    "Login Successful"
+                )
+
+                st.rerun()
+
+            else:
+
+                st.error(
+                    "Invalid Credentials"
+                )
+
+    else:
+
+        if st.button("Register"):
+
+            success = register_user(
+                username,
+                password
+            )
+
+            if success:
+
+                st.success(
+                    "Registration Successful"
+                )
+
+            else:
+
+                st.error(
+                    "Username already exists"
+                )
+
+else:
+
+    st.sidebar.success(
+        f"Logged in as {st.session_state.username}"
+    )
+
+    if st.sidebar.button("Logout"):
+
+        st.session_state.logged_in = False
+
+        if "username" in st.session_state:
+            del st.session_state.username
+
+        st.rerun()
+
+    mode = st.radio(
+        "Select Mode",
+        [
+            "Interview Mode",
+            "Assessment Mode",
+            "History"
+        ]
+    )
 # ==================================================
 # INTERVIEW MODE
 # ==================================================
 
-if mode == "Interview Mode":
+if st.session_state.logged_in and mode == "Interview Mode":
 
     subject = st.selectbox(
         "Subject",
@@ -101,7 +189,7 @@ if mode == "Interview Mode":
 # ASSESSMENT MODE
 # ==================================================
 
-if mode == "Assessment Mode":
+if st.session_state.logged_in and mode == "Assessment Mode":
 
     st.header("Assessment Mode")
 
@@ -256,6 +344,7 @@ if mode == "Assessment Mode":
                 if not st.session_state.saved_result:
 
                     save_assessment(
+                        st.session_state.username,
                         subject,
                         topic,
                         question_type,
@@ -317,10 +406,12 @@ if mode == "Assessment Mode":
 # HISTORY MODE
 # ==================================================
 
-if mode == "History":
+if st.session_state.logged_in and mode == "History":
 
     st.header("Assessment History")
-    analytics = get_analytics()
+    analytics = get_analytics(
+        st.session_state.username
+    )
 
     st.subheader("📊 Analytics")
 
@@ -355,7 +446,9 @@ if mode == "History":
         f"{analytics['latest_difficulty']}"
     )
 
-    rows = get_assessments()
+    rows = get_assessments(
+        st.session_state.username
+    )
     if len(rows) > 0:
 
         chart_data = []
@@ -379,7 +472,9 @@ if mode == "History":
 
         st.subheader("⚠ Weak Topic Detection")
 
-        topics = get_topic_performance()
+        topics = get_topic_performance(
+            st.session_state.username
+        )
 
         if len(topics) > 0:
 
