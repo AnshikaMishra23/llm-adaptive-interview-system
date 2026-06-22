@@ -173,3 +173,25 @@ def get_analytics():
         "latest_difficulty":
             difficulty_row[0] if difficulty_row else "N/A"
     }
+def get_topic_performance():
+
+    conn = create_connection()
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT
+            topic,
+            AVG(percentage)
+        FROM assessments
+        GROUP BY topic
+        ORDER BY AVG(percentage)
+        """
+    )
+
+    rows = cursor.fetchall()
+
+    conn.close()
+
+    return rows

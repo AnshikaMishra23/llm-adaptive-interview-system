@@ -5,6 +5,7 @@ from services.llm_service import ask_llm
 from prompts.question_prompt import get_question_prompt
 from services.evaluator import evaluate_answer
 from utils.helper import extract_score
+from services.learning_path import get_learning_path
 from services.adaptive_engine import get_next_difficulty
 
 from services.assessment_generator import generate_assessment
@@ -12,7 +13,8 @@ from services.assessment_evaluator import evaluate_assessment
 from database.sqlite_manager import (
     save_assessment,
     get_assessments,
-    get_analytics
+    get_analytics,
+    get_topic_performance
 )
 
 st.set_page_config(
@@ -342,6 +344,49 @@ if mode == "History":
         st.line_chart(
             df.set_index("Timestamp")
         )
+
+        st.subheader("⚠ Weak Topic Detection")
+
+        topics = get_topic_performance()
+
+        if len(topics) > 0:
+
+            weak_topics = topics[:3]
+
+            for topic, score in weak_topics:
+
+                st.write(
+                    f"📌 {topic} : {score:.2f}%"
+                )
+        if len(topics) > 0:
+
+            weakest_topic = topics[0][0]
+
+            path = get_learning_path(
+                weakest_topic
+            )
+
+            st.subheader(
+                "📚 Recommended Learning Path"
+            )
+
+            for step_no, step in enumerate(
+                path,
+                start=1
+            ):
+
+                st.write(
+                    f"{step_no}. {step}"
+                )
+        if len(rows) == 0:
+
+            st.info("No assessments found.")
+
+        else:
+
+            history_data = []
+            ...
+        
 
     if len(rows) == 0:
 
