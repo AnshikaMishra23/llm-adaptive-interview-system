@@ -20,6 +20,13 @@ from database.auth_manager import (
     register_user,
     login_user
 )
+from services.pdf_reader import (
+    extract_text_from_pdf
+)
+
+from services.pdf_assessment_generator import (
+    generate_questions_from_pdf
+)
 
 st.set_page_config(
     page_title="LLM Adaptive Interview System",
@@ -215,7 +222,22 @@ if st.session_state.logged_in and mode == "Assessment Mode":
         ["MCQ" , "MSQ" ,"Mixed","Descriptive"],
         key="assessment_question_type"
     )
+    assessment_source = st.radio(
+        "Assessment Source",
+        [
+            "Topic Based",
+            "PDF Based"
+        ]
+    )
 
+    uploaded_pdf = None
+
+    if assessment_source == "PDF Based":
+
+        uploaded_pdf = st.file_uploader(
+            "Upload PDF Notes",
+            type=["pdf"]
+        )
     num_questions = st.number_input(
         "Number of Questions",
         min_value=1,
@@ -227,14 +249,46 @@ if st.session_state.logged_in and mode == "Assessment Mode":
         st.session_state.assessment_questions = []
 
     if st.button("Generate Assessment"):
+
         st.session_state.saved_result = False
-        questions = generate_assessment(
-            subject,
-            topic,
-            difficulty,
-            question_type,
-            num_questions
-        )
+
+        if assessment_source == "Topic Based":
+
+            questions = generate_assessment(
+                subject,
+                topic,
+                difficulty,
+                question_type,
+                num_questions
+            )
+
+        else:
+
+            if uploaded_pdf is None:
+
+                st.warning(
+                    "Please upload a PDF."
+                )
+
+                st.stop()
+
+            from services.pdf_reader import (
+                extract_text_from_pdf
+            )
+
+            from services.pdf_assessment_generator import (
+                generate_questions_from_pdf
+            )
+
+            pdf_text = extract_text_from_pdf(
+                uploaded_pdf
+            )
+
+            questions = generate_questions_from_pdf(
+                pdf_text,
+                question_type,
+                num_questions
+            )
 
         st.session_state.assessment_questions = questions
 
