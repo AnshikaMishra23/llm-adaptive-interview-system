@@ -1,20 +1,26 @@
 import json
 
 from services.llm_service import ask_llm
-
+from rag.rag_pipeline import (
+    get_relevant_context
+)
 
 def generate_questions_from_pdf(
     pdf_text,
     question_type,
     num_questions
 ):
+    context = get_relevant_context(
+        pdf_text,
+        f"{question_type} questions"
+    )
 
     if question_type == "MCQ":
 
         prompt = f"""
-Based on the following notes:
+Based on the following retrieved context:
 
-{pdf_text[:5000]}
+{context}
 
 Generate {num_questions} MCQ questions.
 
@@ -46,9 +52,9 @@ Rules:
     elif question_type == "MSQ":
 
         prompt = f"""
-Based on the following notes:
+Based on the following retrieved context:
 
-{pdf_text[:5000]}
+{context}
 
 Generate {num_questions} MSQ questions.
 
@@ -83,9 +89,9 @@ Rules:
     elif question_type == "Descriptive":
 
         prompt = f"""
-Based on the following notes:
+Based on the following retrieved context:
 
-{pdf_text[:5000]}
+{context}
 
 Generate {num_questions} descriptive questions.
 
@@ -114,9 +120,9 @@ Rules:
         msq_count = num_questions - mcq_count
 
         prompt = f"""
-Based on the following notes:
+Based on the following retrieved context:
 
-{pdf_text[:5000]}
+{context}
 
 Generate:
 

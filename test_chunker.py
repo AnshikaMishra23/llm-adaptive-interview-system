@@ -1,0 +1,24 @@
+from services.pdf_reader import (
+    extract_text_from_pdf
+)
+
+from rag.chunker import (
+    chunk_text
+)
+
+pdf_path = r"Introduction_to_DBMS.pdf"
+
+text = extract_text_from_pdf(
+    pdf_path
+)
+
+chunks = chunk_text(text)
+
+print(
+    "Total Chunks:",
+    len(chunks)
+)
+
+print("\nFIRST CHUNK:\n")
+
+print(chunks[0])
