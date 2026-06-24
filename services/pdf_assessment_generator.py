@@ -9,14 +9,18 @@ def generate_questions_from_pdf(
     num_questions
 ):
 
-    prompt = f"""
+    if question_type == "MCQ":
+
+        prompt = f"""
 Based on the following notes:
 
 {pdf_text[:5000]}
 
-Generate {num_questions} {question_type} questions.
+Generate {num_questions} MCQ questions.
 
-Return ONLY valid JSON in this format:
+Return ONLY valid JSON.
+
+Format:
 
 [
     {{
@@ -34,9 +38,131 @@ Return ONLY valid JSON in this format:
     }}
 ]
 
-Do not return explanations.
-Do not return markdown.
-Return JSON only.
+Rules:
+1. Exactly one correct answer.
+2. Return JSON only.
+"""
+
+    elif question_type == "MSQ":
+
+        prompt = f"""
+Based on the following notes:
+
+{pdf_text[:5000]}
+
+Generate {num_questions} MSQ questions.
+
+Return ONLY valid JSON.
+
+Format:
+
+[
+    {{
+        "question_id": 1,
+        "question_type": "MSQ",
+        "question": "Question text",
+        "options": [
+            "Option A",
+            "Option B",
+            "Option C",
+            "Option D"
+        ],
+        "correct_answer": [
+            "Option A",
+            "Option C"
+        ],
+        "marks": 1
+    }}
+]
+
+Rules:
+1. At least two correct answers.
+2. Return JSON only.
+"""
+
+    elif question_type == "Descriptive":
+
+        prompt = f"""
+Based on the following notes:
+
+{pdf_text[:5000]}
+
+Generate {num_questions} descriptive questions.
+
+Return ONLY valid JSON.
+
+Format:
+
+[
+    {{
+        "question_id": 1,
+        "question_type": "Descriptive",
+        "question": "Question text",
+        "marks": 10
+    }}
+]
+
+Rules:
+1. Generate descriptive/theory questions.
+2. Return JSON only.
+"""
+
+    else:
+
+        mcq_count = max(1, num_questions // 2)
+
+        msq_count = num_questions - mcq_count
+
+        prompt = f"""
+Based on the following notes:
+
+{pdf_text[:5000]}
+
+Generate:
+
+{mcq_count} MCQ questions
+{msq_count} MSQ questions
+
+Return ONLY valid JSON.
+
+Format:
+
+[
+    {{
+        "question_id": 1,
+        "question_type": "MCQ",
+        "question": "Question text",
+        "options": [
+            "Option A",
+            "Option B",
+            "Option C",
+            "Option D"
+        ],
+        "correct_answer": "Option B",
+        "marks": 1
+    }},
+    {{
+        "question_id": 2,
+        "question_type": "MSQ",
+        "question": "Question text",
+        "options": [
+            "Option A",
+            "Option B",
+            "Option C",
+            "Option D"
+        ],
+        "correct_answer": [
+            "Option A",
+            "Option C"
+        ],
+        "marks": 1
+    }}
+]
+
+Rules:
+1. MCQ must have one correct answer.
+2. MSQ must have multiple correct answers.
+3. Return JSON only.
 """
 
     response = ask_llm(prompt)
@@ -44,25 +170,4 @@ Return JSON only.
     print("PDF RESPONSE:")
     print(response)
 
-    data = json.loads(response)
-
-    if isinstance(data, dict) and "questions" in data:
-
-        questions = []
-
-        for i, q in enumerate(data["questions"], start=1):
-
-            questions.append(
-                {
-                    "question_id": i,
-                    "question_type": "MCQ",
-                    "question": q["question"],
-                    "options": q["options"],
-                    "correct_answer": q["answer"],
-                    "marks": 1
-                }
-            )
-
-        return questions
-
-    return data
+    return json.loads(response)
