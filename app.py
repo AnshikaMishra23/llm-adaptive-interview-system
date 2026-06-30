@@ -13,7 +13,6 @@ from services.assessment_evaluator import evaluate_assessment
 from database.sqlite_manager import (
     save_assessment,
     get_assessments,
-    get_analytics,
     get_topic_performance
 )
 from database.auth_manager import (
@@ -26,6 +25,10 @@ from services.pdf_reader import (
 
 from services.pdf_assessment_generator import (
     generate_questions_from_pdf
+)
+from evaluation.report import generate_report
+from evaluation.adaptive_metrics import (
+    adaptive_learning_metrics
 )
 
 st.set_page_config(
@@ -121,7 +124,8 @@ else:
         [
             "Interview Mode",
             "Assessment Mode",
-            "History"
+            "History",
+            "Evaluation Dashboard"
         ]
     )
 # ==================================================
@@ -248,49 +252,54 @@ if st.session_state.logged_in and mode == "Assessment Mode":
     if "assessment_questions" not in st.session_state:
         st.session_state.assessment_questions = []
 
-    if st.button("Generate Assessment"):
+    if st.button(
+        "🚀 Generate Assessment",
+        use_container_width=True
+    ):
 
         st.session_state.saved_result = False
 
-        if assessment_source == "Topic Based":
+        with st.spinner("Generating assessment... Please wait ⏳"):
 
-            questions = generate_assessment(
-                subject,
-                topic,
-                difficulty,
-                question_type,
-                num_questions
-            )
+            if assessment_source == "Topic Based":
 
-        else:
-
-            if uploaded_pdf is None:
-
-                st.warning(
-                    "Please upload a PDF."
+                questions = generate_assessment(
+                    subject,
+                    topic,
+                    difficulty,
+                    question_type,
+                    num_questions
                 )
 
-                st.stop()
+            else:
 
-            from services.pdf_reader import (
-                extract_text_from_pdf
+                if uploaded_pdf is None:
+
+                    st.warning(
+                        "Please upload a PDF."
+                    )
+
+                    st.stop()
+
+                pdf_text = extract_text_from_pdf(
+                    uploaded_pdf
+                )
+
+                questions = generate_questions_from_pdf(
+                    pdf_text,
+                    question_type,
+                    num_questions
+                )
+
+            st.session_state.assessment_questions = questions
+
+            st.session_state.evaluation_report = generate_report(
+                questions
             )
 
-            from services.pdf_assessment_generator import (
-                generate_questions_from_pdf
-            )
-
-            pdf_text = extract_text_from_pdf(
-                uploaded_pdf
-            )
-
-            questions = generate_questions_from_pdf(
-                pdf_text,
-                question_type,
-                num_questions
-            )
-
-        st.session_state.assessment_questions = questions
+        st.success(
+            " Assessment generated successfully!"
+        )
 
     if st.session_state.assessment_questions:
 
@@ -456,6 +465,7 @@ if st.session_state.logged_in and mode == "Assessment Mode":
                             st.write(
                                 f"Correct Answer: {correct_answer}"
                             )
+        
 # ==================================================
 # HISTORY MODE
 # ==================================================
@@ -463,43 +473,7 @@ if st.session_state.logged_in and mode == "Assessment Mode":
 if st.session_state.logged_in and mode == "History":
 
     st.header("Assessment History")
-    analytics = get_analytics(
-        st.session_state.username
-    )
-
-    st.subheader("📊 Analytics")
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-
-        st.metric(
-            "Total Assessments",
-            analytics["total_assessments"]
-        )
-
-        st.metric(
-            "Average Percentage",
-            f"{analytics['average_percentage']:.2f}%"
-        )
-
-    with col2:
-
-        st.metric(
-            "Highest Percentage",
-            f"{analytics['highest_percentage']:.2f}%"
-        )
-
-        st.metric(
-            "Most Practiced Subject",
-            analytics["most_practiced_subject"]
-        )
-
-    st.info(
-        f"Latest Recommended Difficulty: "
-        f"{analytics['latest_difficulty']}"
-    )
-
+    
     rows = get_assessments(
         st.session_state.username
     )
@@ -518,11 +492,6 @@ if st.session_state.logged_in and mode == "History":
 
         df = pd.DataFrame(chart_data)
 
-        st.subheader("📈 Performance Trend")
-
-        st.line_chart(
-            df.set_index("Timestamp")
-        )
 
         st.subheader("⚠ Weak Topic Detection")
 
@@ -595,3 +564,282 @@ if st.session_state.logged_in and mode == "History":
             history_data,
             use_container_width=True
         )
+
+# ==================================================
+# EVALUATION DASHBOARD
+# ==================================================
+
+if (
+    st.session_state.logged_in
+    and mode == "Evaluation Dashboard"
+):
+
+    st.header("📊 Evaluation Dashboard")
+
+    adaptive = adaptive_learning_metrics(
+        st.session_state.username
+    )
+
+    st.header("📈 Adaptive Learning")
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+
+        st.metric(
+            "Total Assessments",
+            adaptive["Total Assessments"]
+        )
+
+    with col2:
+
+        st.metric(
+            "Average Score",
+            f"{adaptive['Average Score']:.2f}%"
+        )
+
+    with col3:
+
+        st.metric(
+            "Highest Score",
+            f"{adaptive['Highest Score']:.2f}%"
+        )
+
+    with col4:
+
+        st.metric(
+            "Current Difficulty",
+            adaptive["Current Difficulty"]
+        )
+
+    st.divider()
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+
+        st.metric(
+            "Lowest Score",
+            f"{adaptive['Lowest Score']:.2f}%"
+        )
+
+    with col2:
+
+        st.metric(
+            "Performance Trend",
+            adaptive["Performance Trend"]
+        )
+
+    with col3:
+
+        st.metric(
+            "Most Practiced Subject",
+            adaptive["Most Practiced Subject"]
+        )
+
+    with col4:
+
+        st.metric(
+            "Weakest Topic",
+            adaptive["Weakest Topic"]
+        )
+    st.divider()
+
+    # ==================================================
+    # PERFORMANCE TREND
+    # ==================================================
+
+    st.header("📈 Performance Trend")
+
+    rows = get_assessments(
+        st.session_state.username
+    )
+
+    if len(rows) > 0:
+
+        chart_data = []
+
+        for row in reversed(rows):
+
+            chart_data.append(
+                {
+                    "Timestamp": row[7],
+                    "Percentage": row[5]
+                }
+            )
+
+        df = pd.DataFrame(chart_data)
+
+        st.line_chart(
+            df.set_index("Timestamp")
+        )
+
+    else:
+
+        st.info(
+            "No assessment history available."
+        )
+
+    st.divider()
+
+    # ==================================================
+    # QUESTION QUALITY
+    # ==================================================
+    st.caption(
+        "Metrics for the latest assessment generated in this session."
+    )
+    st.header("🧠 Question Quality")
+
+    if "evaluation_report" in st.session_state:
+
+        report = st.session_state.evaluation_report
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+
+            st.metric(
+                "Diversity Score",
+                round(
+                    report["Diversity Score"],
+                    2
+                )
+            )
+
+        with col2:
+
+            st.metric(
+                "Duplicate Questions",
+                report["Duplicate Questions"]
+            )
+
+        with col3:
+
+            st.metric(
+                "Average Question Length",
+                round(
+                    report["Average Question Length"],
+                    2
+                )
+            )
+
+    else:
+
+        st.info(
+            "Generate an assessment to view question quality metrics."
+        )
+
+    st.divider()
+
+    # ==================================================
+    # ASSESSMENT STATISTICS
+    # ==================================================
+    st.caption(
+        "Statistics for the latest assessment generated in this session."
+    )
+    st.header("📄 Assessment Statistics")
+
+    if "evaluation_report" in st.session_state:
+
+        report = st.session_state.evaluation_report
+
+        col1, col2, col3, col4 = st.columns(4)
+
+        with col1:
+
+            st.metric(
+                "Total Questions",
+                report["Total Questions"]
+            )
+
+        with col2:
+
+            st.metric(
+                "MCQ Questions",
+                report["MCQ Questions"]
+            )
+
+        with col3:
+
+            st.metric(
+                "MSQ Questions",
+                report["MSQ Questions"]
+            )
+
+        with col4:
+
+            st.metric(
+                "Descriptive",
+                report["Descriptive Questions"]
+            )
+
+        st.metric(
+            "Total Marks",
+            report["Total Marks"]
+        )
+
+    else:
+
+        st.info(
+            "Generate an assessment to view assessment statistics."
+        )
+        st.divider()
+
+    # ==================================================
+    # RAG PERFORMANCE
+    # ==================================================
+
+    st.subheader("⚡ RAG Performance")
+
+    if "evaluation_report" in st.session_state:
+
+        report = st.session_state.evaluation_report
+
+        rag_metrics = [
+            "PDF Extraction Time",
+            "Chunking Time",
+            "Embedding Time",
+            "FAISS Index Time",
+            "Retrieval Time",
+            "LLM Generation Time",
+            "Retrieved Chunks"
+        ]
+
+        rag_data = []
+
+        for metric in rag_metrics:
+
+            if metric in report:
+
+                rag_data.append(
+                    {
+                        "Metric": metric,
+                        "Value": report[metric]
+                    }
+                )
+
+        if len(rag_data) > 0:
+
+            col1, col2 = st.columns(2)
+
+            for i, item in enumerate(rag_data):
+
+                if i % 2 == 0:
+                    with col1:
+                        st.metric(item["Metric"], item["Value"])
+                else:
+                    with col2:
+                        st.metric(item["Metric"], item["Value"])
+
+        else:
+
+            st.info(
+                "Generate a PDF-based assessment to view RAG metrics."
+            )
+
+    else:
+
+        st.info(
+            "Generate a PDF-based assessment to view RAG metrics."
+        )
+    

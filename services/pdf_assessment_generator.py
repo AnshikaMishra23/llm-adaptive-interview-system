@@ -4,6 +4,10 @@ from services.llm_service import ask_llm
 from rag.rag_pipeline import (
     get_relevant_context
 )
+from evaluation.metrics import (
+    Timer,
+    add_metric
+)
 
 def generate_questions_from_pdf(
     pdf_text,
@@ -171,7 +175,18 @@ Rules:
 3. Return JSON only.
 """
 
+    timer = Timer()
+
+    timer.start()
+
     response = ask_llm(prompt)
+
+    llm_time = timer.stop()
+
+    add_metric(
+        "LLM Generation Time",
+        llm_time
+    )
 
     print("PDF RESPONSE:")
     print(response)
